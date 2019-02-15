@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate, MigrateCommand
 from flask_script import Manager
 from flask_sqlalchemy import SQLAlchemy
-# from web_app import app,db
+# from main import app,db
 db = SQLAlchemy()
 import pymysql
 pymysql.install_as_MySQLdb()
