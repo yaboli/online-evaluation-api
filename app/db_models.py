@@ -2,13 +2,15 @@
 
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from web_app import db
+
 from flask_migrate import Migrate, MigrateCommand
 from flask_script import Manager
 from flask_sqlalchemy import SQLAlchemy
-# from web_app import app
+# from web_app import app,db
+db = SQLAlchemy()
 import pymysql
 pymysql.install_as_MySQLdb()
+
 
 class BaseModel(object):
     """模型基类，提供时间"""
@@ -55,6 +57,15 @@ class TagInfo(BaseModel, db.Model):
     tags = db.Column(db.String(1000), nullable=False)
 
 
+class Verify_code(BaseModel, db.Model):
+    """保存验证码"""
+    __tablename__ = 'verify_code'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    time = db.Column(db.String(50), nullable=False)
+    value = db.Column(db.String(10), nullable=False)
+
+# #
 # Migrate(app=app, db=db)
 # manager = Manager(app)
 # manager.add_command("db", MigrateCommand)
