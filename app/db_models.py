@@ -1,28 +1,35 @@
 # coding=utf-8
 
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
-
-from flask_migrate import Migrate, MigrateCommand
-from flask_script import Manager
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-# from main import app,db
-db = SQLAlchemy()
+from flask_migrate import Migrate
+from werkzeug.security import generate_password_hash, check_password_hash
 import pymysql
+from config import Config
+
 pymysql.install_as_MySQLdb()
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = Config.SQLALCHEMY_DATABASE_URI
+
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 
 class BaseModel(object):
     """模型基类，提供时间"""
     create_time = db.Column(db.DateTime, default=datetime.now)
-    updata_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    update_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class User(BaseModel, db.Model):
     """用户"""
-    __tablename__ = "user_profile"
+    __tablename__ = "user"
     id = db.Column(db.Integer, primary_key=True)  # 用户编号
-    name = db.Column(db.String(32), unique=True,nullable=True)    # 昵称
+    name = db.Column(db.String(32), unique=True, nullable=True)  # 姓名
+    title = db.Column(db.String(32), unique=True, nullable=True)  # 职务
+    organization = db.Column(db.String(32), unique=True, nullable=True)  # 单位
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(40), unique=True, nullable=False)  # 邮箱
 
@@ -41,23 +48,16 @@ class User(BaseModel, db.Model):
     def to_dict(self):
         user_dict = {
             "user_id": self.id,
-            "email":self.email,
-            "name":self.name,
-            "create_time":self.create_time.strftime("%Y-%m-%d %H:%M:%S")
+            "email": self.email,
+            "name": self.name,
+            "title": self.title,
+            "organization": self.organization,
+            "create_time": self.create_time.strftime("%Y-%m-%d %H:%M:%S")
         }
         return user_dict
 
 
-class TagInfo(BaseModel, db.Model):
-    """标注数据"""
-    __tablename__="tag_data"
-    id = db.Column(db.Integer, primary_key=True)
-    submitter = db.Column(db.String(40), nullable=False)
-    sentence = db.Column(db.String(1000), nullable=False)
-    tags = db.Column(db.String(1000), nullable=False)
-
-
-class Verify_code(BaseModel, db.Model):
+class VerifyCode(BaseModel, db.Model):
     """保存验证码"""
     __tablename__ = 'verify_code'
     id = db.Column(db.Integer, primary_key=True)
@@ -65,9 +65,14 @@ class Verify_code(BaseModel, db.Model):
     time = db.Column(db.String(50), nullable=False)
     value = db.Column(db.String(10), nullable=False)
 
-# #
-# Migrate(app=app, db=db)
-# manager = Manager(app)
-# manager.add_command("db", MigrateCommand)
-# if __name__ == '__main__':
-#     manager.run()
+
+class LabeledDataUnit(BaseModel, db.Model):
+    """标注数据"""
+    __tablename__ = "labeled_data_unit"
+    id = db.Column(db.Integer, primary_key=True)
+    creator = db.Column(db.String(40), nullable=False)
+    original_text = db.Column(db.String(512), nullable=False)
+    chars = db.Column(db.String(1024), nullable=False)
+    iob_char = db.Column(db.String(1024), nullable=False)
+    words = db.Column(db.String(1024), nullable=False)
+    iob_word = db.Column(db.String(1024), nullable=False)
