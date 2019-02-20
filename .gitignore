@@ -2,4 +2,4 @@
 __pycache__/
 venv/
 migrations/
-app/logs/
+**/logs/

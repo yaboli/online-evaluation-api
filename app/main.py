@@ -62,7 +62,6 @@ def after_request(response):
 @cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def register():
     user_data = request.get_json()
-    # print(user_data)
     # 判断获取结果
     if not user_data:
         return jsonify(errno=RET.PARAMERR, errmsg='参数错误')
@@ -266,7 +265,7 @@ def find_unit():
     if type(original_text) is not str:
         return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
 
-    selected_model = request_json('model').lower()
+    selected_model = request_json.get('model').lower()
     # TODO: 加入ELMo选项
     if selected_model not in ['vanilla', 'bert']:
         return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
@@ -279,21 +278,22 @@ def find_unit():
 # TODO: 根据客户端请求调用相应模型
 def get_predictions(original_text, model):
     url_1 = ''
-    url_2 = ''
+    url_2 = 'http://127.0.0.1:5003/api/find-units'
     json_data = {
         "text": original_text
     }
     if model == 'vanilla':
-        r = requests.post(url_1, data=json.dumps(json_data))
+        r = requests.post(url_1, json=json_data)
     else:
-        r = requests.post(url_2, data=json.dumps(json_data))
+        r = requests.post(url_2, json=json_data)
     data = r.json()
     text = []
     tags = []
     table = data['table']
-    for entry in table:
-        text.append(entry[0])
-        tags.append(entry[1])
+    for seq in table:
+        for tup in seq:
+            text.append(tup[0])
+            tags.append(tup[1])
     return text, tags
 
 
