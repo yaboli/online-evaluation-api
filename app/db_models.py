@@ -3,7 +3,8 @@
 from datetime import datetime
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask_migrate import Migrate, MigrateCommand
+from flask_script import Manager
 from werkzeug.security import generate_password_hash, check_password_hash
 import pymysql
 from config import Config
@@ -15,6 +16,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = Config.SQLALCHEMY_DATABASE_URI
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+manager = Manager(app)
+manager.add_command("db", MigrateCommand)
 
 
 class BaseModel(object):
@@ -28,8 +32,8 @@ class User(BaseModel, db.Model):
     __tablename__ = "user"
     id = db.Column(db.Integer, primary_key=True)  # 用户编号
     name = db.Column(db.String(32), unique=True, nullable=True)  # 姓名
-    title = db.Column(db.String(32), unique=True, nullable=True)  # 职务
-    organization = db.Column(db.String(32), unique=True, nullable=True)  # 单位
+    title = db.Column(db.String(32), nullable=True)  # 职务
+    organization = db.Column(db.String(32), nullable=True)  # 单位
     password_hash = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(40), unique=True, nullable=False)  # 邮箱
 
@@ -76,3 +80,7 @@ class LabeledDataUnit(BaseModel, db.Model):
     iob_char = db.Column(db.String(1024), nullable=False)
     words = db.Column(db.String(1024), nullable=False)
     iob_word = db.Column(db.String(1024), nullable=False)
+
+
+if __name__ == '__main__':
+    manager.run()

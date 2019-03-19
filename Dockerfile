@@ -2,8 +2,6 @@ FROM tiangolo/uwsgi-nginx:python3.6
 
 LABEL maintainer="Sebastian Ramirez <tiangolo@gmail.com>"
 
-RUN pip install flask
-
 # URL under which static (not modified by Python) files will be requested
 # They will be served by Nginx directly, without being handled by uWSGI
 ENV STATIC_URL /static
@@ -14,9 +12,18 @@ ENV STATIC_PATH /app/static
 # ENV STATIC_INDEX 1
 ENV STATIC_INDEX 0
 
+# ---------- My ENV parameters ----------
+ENV LANG C.UTF-8
+ENV LISTEN_PORT 8085
+EXPOSE 8085
+
 # Add demo app
 COPY ./app /app
+COPY requirements.txt /app/requirements.txt
 WORKDIR /app
+
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
 # Make /app/* available to be imported by Python globally to better support several use cases like Alembic migrations.
 ENV PYTHONPATH=/app

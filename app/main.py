@@ -1,7 +1,6 @@
 import logging
 import random
 import re
-import sys
 import time
 from logging.handlers import RotatingFileHandler
 from threading import Thread
@@ -14,13 +13,12 @@ from flask_cors import CORS, cross_origin
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash
 import requests
-import json
 
 import jieba
 
 app = Flask(__name__)
 app.config['CORS_HEADERS'] = 'Content-Type'
-CORS(app, resources={r"/*": {"origins": "http://172.18.34.56:8081"}})  # cors 跨域处理 允许这个地址端口访问
+CORS(app)  # cors 跨域处理 允许这个地址端口访问
 
 # 设置日志记录等级
 logging.basicConfig(level=logging.ERROR)  # 调试debug级
@@ -49,7 +47,6 @@ mail = Mail(app)
 
 
 @app.after_request
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def after_request(response):
     """设置默认的响应报文格式为application/json"""
     # 如果响应报文response的Content-Type是以text开头，则将其改为默认的json类型
@@ -59,7 +56,6 @@ def after_request(response):
 
 
 @app.route('/register', methods=['POST'])
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def register():
     user_data = request.get_json()
     # 判断获取结果
@@ -104,7 +100,6 @@ def register():
 
 
 @app.route('/login', methods=['POST'])
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def login():
     user_data = request.get_json()
     if not user_data:
@@ -130,7 +125,6 @@ def login():
 
 
 @app.route('/captcha', methods=['POST'])  # 重置密码
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def send_captcha():
     "qffostofvizxbegj"
     ss = "zxcvbnmsdfghjklqwertyuiop1234567890QWERTYUIOPKLJHGFDSAZXCVBNM"
@@ -197,7 +191,6 @@ def send_async_email(flask_app, msg):
 
 
 @app.route('/changepass', methods=['POST'])
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def change_password():
     user_data = request.get_json()
     if not user_data:
@@ -247,7 +240,6 @@ def change_password():
 
 
 @app.route('/find-unit', methods=['POST'])
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def find_unit():
     """接收语句，判断单位"""
     request_json = request.get_json()
@@ -278,7 +270,7 @@ def find_unit():
 # TODO: 根据客户端请求调用相应模型
 def get_predictions(original_text, model):
     url_1 = ''
-    url_2 = 'http://127.0.0.1:5003/api/find-units'
+    url_2 = 'http://172.18.34.25:9000/api/find-units'
     json_data = {
         "text": original_text
     }
@@ -287,18 +279,17 @@ def get_predictions(original_text, model):
     else:
         r = requests.post(url_2, json=json_data)
     data = r.json()
-    text = []
+    tokens = []
     tags = []
     table = data['table']
     for seq in table:
         for tup in seq:
-            text.append(tup[0])
-            tags.append(tup[1])
-    return text, tags
+            tokens.append(tup[0])
+            tags.append(0) if tup[1] == 'O' else tags.append(1)
+    return tokens, tags
 
 
 @app.route('/submit-edit/unit', methods=['POST'])
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def submit_edit():
     """提交新标注的数据"""
     request_json = request.get_json()
@@ -307,9 +298,8 @@ def submit_edit():
 
     email = request_json.get('email')
     text = request_json.get('text')
-    positions = request_json.get('positions')  # expected to be list of tuples: [(x1, x2), ...]
 
-    if not all([email, text, positions]):
+    if not all([email, text]):
         return jsonify(errno=RET.PARAMERR, errmsg="参数不完整")
 
     try:
@@ -321,14 +311,29 @@ def submit_edit():
     if not user:
         return jsonify(errno=RET.NODATA, errmsg='用户名不存在')
 
+    positions = request_json.get('positions')  # expected to be list of tuples: [(x1, x2), ...]
+
+    # separators = ['。', '！', '!', '；', '？', '?']
+    # if positions:
+    #     chars = list(text)
+    #     labels_c = create_iob_char(text, positions)
+    #     words, labels_w = create_iob_word(text, positions)
+
     labeled_data = LabeledDataUnit()
     labeled_data.creator = email
     labeled_data.original_text = text
     labeled_data.chars = ' '.join(list(text))
-    labeled_data.iob_char = ' '.join(create_iob_char(text, positions))
-    words, labels = create_iob_word(text, positions)
-    labeled_data.words = ' '.join(words)
-    labeled_data.iob_word = ' '.join(labels)
+
+    if positions:
+        labeled_data.iob_char = ' '.join(create_iob_char(text, positions))
+        words, labels_w = create_iob_word(text, positions)
+        labeled_data.words = ' '.join(words)
+        labeled_data.iob_word = ' '.join(labels_w)
+    else:
+        labeled_data.iob_char = ' '.join(['O'] * len(text))
+        words = list(jieba.cut(text))
+        labeled_data.words = ' '.join(words)
+        labeled_data.iob_word = ' '.join(['O'] * len(words))
 
     try:
         db.session.add(labeled_data)
@@ -419,18 +424,12 @@ def create_iob_word(text, positions):
 
 
 @app.route("/")
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def hello():
-    version = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
-    message = "Hello World from Flask in a uWSGI Nginx Docker container with Python {} (default)".format(
-        version
-    )
-    return message
+    return "<h1 style='color:blue'>智能审校线上评测系统终端</h1>"
 
 
 # HTTP Errors handlers
 @app.errorhandler(404)
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def url_error(e):
     return """
     Wrong URL!
@@ -438,7 +437,6 @@ def url_error(e):
 
 
 @app.errorhandler(500)
-@cross_origin(origin='172.18.34.56:8081', headers=['Content-Type'])  # cors 跨域处理 允许这个地址端口访问
 def server_error(e):
     return """
     An internal error occurred: <pre>{}</pre>
@@ -447,4 +445,4 @@ def server_error(e):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True, port=5001)
+    app.run(host="0.0.0.0", port=8085)

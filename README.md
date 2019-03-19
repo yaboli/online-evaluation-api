@@ -17,14 +17,15 @@ pip install -r requirements.txt
 3. 在command line中进入项目directory，并输入如下指令：
 
 ```
-set FLASK_APP=app/db_models.py
+python db_models.py db init
 ```
 ```
-flask db init
+python db_models.py db migrate
 ```
 ```
-flask db migrate
+python db_models.py db update
 ```
+如果需要执行其他指令，输入以下指令：
 ```
-flask db upgrade
+python db_models.py db --help
 ```
