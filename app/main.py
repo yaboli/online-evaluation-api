@@ -45,6 +45,8 @@ app.config["MAIL_DEFAULT_SENDER"] = '653082298@qq.com'
 
 mail = Mail(app)
 
+separators = {'。', '！', '!', '；', '？', '?'}
+
 
 @app.after_request
 def after_request(response):
@@ -262,13 +264,13 @@ def find_unit():
     if selected_model not in ['vanilla', 'bert']:
         return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
 
-    tokens, tags = get_predictions(original_text, selected_model)
+    tokens, tags = get_unit_predictions(original_text, selected_model)
 
     return jsonify(errno=RET.OK, errmsg='OK', data={'tokens': tokens, 'tags': tags})
 
 
 # TODO: 根据客户端请求调用相应模型
-def get_predictions(original_text, model):
+def get_unit_predictions(original_text, model):
     url_1 = ''
     url_2 = 'http://172.18.34.25:9000/api/find-units'
     json_data = {
@@ -287,6 +289,34 @@ def get_predictions(original_text, model):
             tokens.append(tup[0])
             tags.append(0) if tup[1] == 'O' else tags.append(1)
     return tokens, tags
+
+
+@app.route('/spelling-check', methods=['POST'])
+def spelling_check():
+    """接收语句，判断单位"""
+    request_json = request.get_json()
+    if not request_json:
+        return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
+
+    email = request_json['email']
+    try:
+        user = User.query.filter_by(email=email).first()
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg='查询用户信息失败')
+
+    text = request_json.get('text')
+    if type(text) is not str:
+        return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
+
+    json_data = {
+        "text": text
+    }
+
+    url = "172.18.34.25:9001/api/spelling-check"
+    r = requests.post(url, json=json_data)
+
+    return r
 
 
 @app.route('/submit-edit/unit', methods=['POST'])
@@ -312,38 +342,59 @@ def submit_edit():
         return jsonify(errno=RET.NODATA, errmsg='用户名不存在')
 
     positions = request_json.get('positions')  # expected to be list of tuples: [(x1, x2), ...]
-
-    # separators = ['。', '！', '!', '；', '？', '?']
-    # if positions:
-    #     chars = list(text)
-    #     labels_c = create_iob_char(text, positions)
-    #     words, labels_w = create_iob_word(text, positions)
-
-    labeled_data = LabeledDataUnit()
-    labeled_data.creator = email
-    labeled_data.original_text = text
-    labeled_data.chars = ' '.join(list(text))
-
+    chars = list(text)
     if positions:
-        labeled_data.iob_char = ' '.join(create_iob_char(text, positions))
+        labels_c = create_iob_char(text, positions)
         words, labels_w = create_iob_word(text, positions)
-        labeled_data.words = ' '.join(words)
-        labeled_data.iob_word = ' '.join(labels_w)
     else:
-        labeled_data.iob_char = ' '.join(['O'] * len(text))
+        labels_c = ['O'] * len(text)
         words = list(jieba.cut(text))
-        labeled_data.words = ' '.join(words)
-        labeled_data.iob_word = ' '.join(['O'] * len(words))
+        labels_w = ['O'] * len(words)
 
-    try:
-        db.session.add(labeled_data)
-        db.session.commit()
-    except Exception as e:
-        current_app.logger.error(e)
-        db.session.rollback()
-        return jsonify(errno=RET.DBERR, errmsg='保存标注信息失败')
+    list_of_chars, list_of_labels_c = separate_paragraph(chars, labels_c)
+    list_of_words, list_of_labels_w = separate_paragraph(words, labels_w)
+
+    for i in range(len(list_of_labels_c)):
+        _text = ''.join(list_of_chars[i])
+        labeled_data = LabeledDataUnit()
+        labeled_data.creator = email
+        labeled_data.original_text = _text
+        labeled_data.chars = ' '.join(list_of_chars[i])
+        labeled_data.iob_char = ' '.join(list_of_labels_c[i])
+        labeled_data.words = ' '.join(list_of_words[i])
+        labeled_data.iob_word = ' '.join(list_of_labels_w[i])
+        try:
+            db.session.add(labeled_data)
+            db.session.commit()
+        except Exception as e:
+            current_app.logger.error(e)
+            db.session.rollback()
+            return jsonify(errno=RET.DBERR, errmsg='保存标注信息失败')
 
     return jsonify(errno=RET.OK, errmsg='OK')
+
+
+def separate_paragraph(tokens, labels):
+    list_of_tokens = []
+    list_of_labels = []
+    _tokens = []
+    _labels = []
+    for i in range(len(tokens)):
+        if tokens[i] in separators:
+            _labels.append(labels[i])
+            _tokens.append(tokens[i])
+            list_of_labels.append(_labels)
+            list_of_tokens.append(_tokens)
+            _labels = []
+            _tokens = []
+        else:
+            _labels.append(labels[i])
+            _tokens.append(tokens[i])
+    if _tokens:
+        list_of_tokens.append(_tokens)
+    if _labels:
+        list_of_labels.append(_labels)
+    return list_of_tokens, list_of_labels
 
 
 def create_iob_char(text, positions):
@@ -445,4 +496,4 @@ def server_error(e):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8085)
+    app.run(host="0.0.0.0", port=5001)
