@@ -488,3 +488,7 @@ WARNING core.py:357 Unknown option passed to Flask-CORS: origin
 WARNING core.py:357 Unknown option passed to Flask-CORS: headers
 WARNING core.py:357 Unknown option passed to Flask-CORS: origin
 WARNING core.py:357 Unknown option passed to Flask-CORS: headers
+DEBUG __init__.py:111 Building prefix dict from the default dictionary ...
+DEBUG __init__.py:145 Dumping model to file cache C:\Users\26096\AppData\Local\Temp\jieba.cache
+DEBUG __init__.py:163 Loading model cost 0.786 seconds.
+DEBUG __init__.py:164 Prefix dict has been built succesfully.

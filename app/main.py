@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 from threading import Thread
 
 from config import config, RET
-from db_models import User, db, VerifyCode, LabeledDataUnit
+from db_models import User, db, VerifyCode, LabeledDataUnit, LabeledSentence
 from flask import Flask, request, current_app
 from flask import session, jsonify
 from flask_cors import CORS, cross_origin
@@ -373,6 +373,46 @@ def submit_edit():
 
     return jsonify(errno=RET.OK, errmsg='OK')
 
+@app.route('/submit-edit/spelling', methods=['POST'])
+def submit_spelling():
+    """提交修改数据（错别字）"""
+    request_json = request.get_json()
+    if not request_json:
+        return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
+
+    email = request_json.get('email')
+    text = request_json.get('text')
+
+    if not all([email, text]):
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不完整")
+    try:
+        user = User.query.filter_by(email=email).first()
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg='查询用户信息失败')
+
+    if not user:
+        return jsonify(errno=RET.NODATA, errmsg='用户名不存在')
+
+    positions = request_json.get('positions')
+    list_of_sentences, list_of_labels = seperate_sentence(text, positions)
+    for i in range(len(list_of_sentences)):
+        labeled_sentence = LabeledSentence()
+        labeled_sentence.creator = email
+        labeled_sentence.text = list_of_sentences[i]
+        labeled_sentence.labels = list_of_labels[i]
+        try:
+            db.session.add(labeled_sentence)
+            db.session.commit()
+        except Exception as e:
+            current_app.logger.error(e)
+            db.session.rollback()
+            return jsonify(errno=RET.DBERR, errmsg='保存标注信息失败')
+
+    return jsonify(errno=RET.OK, errmsg='OK')
+
+
+
 
 def separate_paragraph(tokens, labels):
     list_of_tokens = []
@@ -395,6 +435,30 @@ def separate_paragraph(tokens, labels):
     if _labels:
         list_of_labels.append(_labels)
     return list_of_tokens, list_of_labels
+
+def seperate_sentence(text, positions):
+    if positions is None:
+        positions = []
+    list_of_sentences = text.split('。')[0 : -1]
+    list_of_lables = []
+    length = 0
+    position = 0
+
+    for i in range(len(list_of_sentences)):
+        list_of_sentences[i] += u'。'
+        label = ""
+        for j in range(len(list_of_sentences[i])):
+            if position < len(positions) and positions[position] == length + j:
+                label += 'B-Err,'
+                position += 1
+            else:
+                label += 'O,'
+        length += len(list_of_sentences[i])
+        list_of_lables.append(label[0:-1])
+
+    return list_of_sentences, list_of_lables
+
+
 
 
 def create_iob_char(text, positions):

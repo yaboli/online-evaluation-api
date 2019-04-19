@@ -6,8 +6,8 @@ class Config:
     SECRET_KEY = "TQ6uZxn+SLqiLgVimX838/VplIsLbEP5jV7vvZ+Ohqw="
 
     # flask-sqlalchemy使用的参数
-    # SQLALCHEMY_DATABASE_URI = "mysql://root:passwrd@192.168.99.100:3306/zhi_neng_shen_jiao"  # 本地数据库
-    SQLALCHEMY_DATABASE_URI = "mysql://root:@172.18.34.25:3306/zhi_neng_shen_jiao?charset=utf8mb4"  # 服务器数据库
+    SQLALCHEMY_DATABASE_URI = "mysql://root:123456@localhost:3306/zhi_neng_shen_jiao"  # 本地数据库
+    #SQLALCHEMY_DATABASE_URI = "mysql://root:@172.18.34.25:3306/zhi_neng_shen_jiao?charset=utf8mb4"  # 服务器数据库
     SQLALCHEMY_TRACK_MODIFICATIONS = True  # 追踪数据库的修cond改行为，如果不设置会报警告，不影响代码的执行
 
 

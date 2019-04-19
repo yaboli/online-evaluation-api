@@ -81,6 +81,14 @@ class LabeledDataUnit(BaseModel, db.Model):
     words = db.Column(db.String(1024), nullable=False)
     iob_word = db.Column(db.String(1024), nullable=False)
 
+class LabeledSentence(BaseModel, db.Model):
+    """标注数据"""
+    __tablename__ = "labeled_sentence"
+    id = db.Column(db.Integer, primary_key=True)
+    creator = db.Column(db.String(40), nullable=False)
+    text = db.Column(db.String(512), nullable=False)
+    labels = db.Column(db.String(1024), nullable=False)
+
 
 if __name__ == '__main__':
     manager.run()
